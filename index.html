@@ -64,8 +64,8 @@
 
     /* ===== state ===== */
     const cvs=document.getElementById('deckCanvas');const ctx=cvs.getContext('2d');const dpi=window.devicePixelRatio||1;
-    let verts=[],railFlags=[],preview=null,closed=false,unit='in';
-    let hoverIdx=null,dragIdx=null,editIdx=null;
+    let shapes=[],preview=null,unit='in';
+    let hover=null,drag=null,edit=null;
 
     /* ===== DOM refs ===== */
     const areaOut=document.getElementById('areaOut');
@@ -88,45 +88,44 @@
 
     /* ===== drawing primitives ===== */
     function drawSnap(p){ctx.fillStyle='limegreen';ctx.beginPath();ctx.arc(p.x,p.y,SNAP_MARK_R,0,Math.PI*2);ctx.fill();}
-            function drawLabel(a,b,i,isPrev=false){
+    function drawLabel(shape,a,b,i,isPrev=false){
       const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
-      // perpendicular unit normal
       let nx=b.y-a.y, ny=-(b.x-a.x);
-      if(!isPrev && closed && signedArea(verts)>0){ nx=-nx; ny=-ny; }
+      if(!isPrev && shape.closed && signedArea(shape.verts)>0){ nx=-nx; ny=-ny; }
       const len=Math.hypot(nx,ny)||1; nx/=len; ny/=len;
-      const OFFSET=24; // px away from line
+      const OFFSET=24;
       const x=midX + nx*OFFSET;
       const y=midY + ny*OFFSET;
       const lenFt=dist(a,b)/PX_PER_FT;
       ctx.save();
       ctx.textAlign='center';
       ctx.textBaseline='middle';
-      ctx.fillStyle=isPrev?'#ff0000':(railFlags[i]?'#0d6efd':'#343a40');
-      ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i]?' R':''}`,x,y);
+      ctx.fillStyle=isPrev?'#ff0000':(shape.railFlags[i]?'#0d6efd':'#343a40');
+      ctx.fillText(`${ftToDisp(lenFt)}${suff()}${shape.railFlags[i]?' R':''}`,x,y);
       ctx.restore();
     }
-    const hitV=p=>verts.findIndex(v=>dist(v,p)<HIT_R);
-    function railSum(){return railFlags.reduce((s,f,i)=>f?s+dist(verts[i],verts[(i+1)%verts.length])/PX_PER_FT:s,0);}
+    const hitV=p=>{for(let si=shapes.length-1;si>=0;si--){const idx=shapes[si].verts.findIndex(v=>dist(v,p)<HIT_R);if(idx!==-1)return{s:si,v:idx};}return null;};
+    const railSum=shape=>shape.railFlags.reduce((s,f,i)=>f?s+dist(shape.verts[i],shape.verts[(i+1)%shape.verts.length])/PX_PER_FT:s,0);
 
     /* ===== draw ===== */
-    function draw(){const r=cvs.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineWidth=2;ctx.font='12px sans-serif';ctx.textBaseline='bottom'; ctx.textAlign='left';if(verts.length){ctx.strokeStyle='#0d6efd';ctx.fillStyle='rgba(13,110,253,.1)';ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);verts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));if(closed)ctx.closePath();ctx.stroke();if(closed)ctx.fill();}if(hoverIdx!==null&&verts.length>1){const a=verts[hoverIdx],b=verts[(hoverIdx+1)%verts.length];ctx.lineWidth=8;ctx.strokeStyle='rgba(13,110,253,.3)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.lineWidth=2;}if(preview&&verts.length&&!closed){ctx.setLineDash([5,5]);ctx.strokeStyle='red';ctx.beginPath();ctx.moveTo(verts.at(-1).x,verts.at(-1).y);ctx.lineTo(preview.x,preview.y);ctx.stroke();ctx.setLineDash([]);drawLabel(verts.at(-1),preview,verts.length-1,true);drawSnap(preview);}if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++)drawLabel(verts[i],verts[(i+1)%verts.length],i);}ctx.fillStyle='#212529';verts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});const areaFt=polyArea(verts)/(PX_PER_FT**2);const railFt=railSum();const totalPrice=areaFt*5+railFt*8;areaOut.textContent=areaFt.toFixed(1);railOut.textContent=railFt.toFixed(1);priceOut.textContent=totalPrice.toFixed(2);}
+    function draw(){const r=cvs.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineWidth=2;ctx.font='12px sans-serif';ctx.textBaseline='bottom'; ctx.textAlign='left';shapes.forEach((shape,si)=>{const verts=shape.verts;if(!verts.length)return;ctx.strokeStyle='#0d6efd';ctx.fillStyle='rgba(13,110,253,.1)';ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);verts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));if(shape.closed)ctx.closePath();ctx.stroke();if(shape.closed)ctx.fill();if(hover&&hover.s===si&&verts.length>1){const a=verts[hover.i],b=verts[(hover.i+1)%verts.length];ctx.lineWidth=8;ctx.strokeStyle='rgba(13,110,253,.3)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.lineWidth=2;}const curr=shapes[shapes.length-1];if(preview&&curr===shape&&!shape.closed){ctx.setLineDash([5,5]);ctx.strokeStyle='red';ctx.beginPath();ctx.moveTo(verts.at(-1).x,verts.at(-1).y);ctx.lineTo(preview.x,preview.y);ctx.stroke();ctx.setLineDash([]);drawLabel(shape,verts.at(-1),preview,verts.length-1,true);drawSnap(preview);}if(verts.length>1){const n=shape.closed?verts.length:verts.length-1;for(let i=0;i<n;i++)drawLabel(shape,verts[i],verts[(i+1)%verts.length],i);}ctx.fillStyle='#212529';verts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});});const areaFt=shapes.reduce((s,shape)=>s+polyArea(shape.verts)/(PX_PER_FT**2),0);const railFt=shapes.reduce((s,shape)=>s+railSum(shape),0);const totalPrice=areaFt*5+railFt*8;areaOut.textContent=areaFt.toFixed(1);railOut.textContent=railFt.toFixed(1);priceOut.textContent=totalPrice.toFixed(2);}
 
     /* ===== hover ===== */
-    function updHover(pos){hoverIdx=null;if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++){if(pointSegDist(pos,verts[i],verts[(i+1)%verts.length])<HOVER_HIT){hoverIdx=i;break;}}}}
+    function updHover(pos){hover=null;for(let si=shapes.length-1;si>=0;si--){const verts=shapes[si].verts;if(verts.length>1){const n=shapes[si].closed?verts.length:verts.length-1;for(let i=0;i<n;i++){if(pointSegDist(pos,verts[i],verts[(i+1)%verts.length])<HOVER_HIT){hover={s:si,i};return;}}}}}
 
     /* ===== modal save ===== */
-    document.getElementById('lenSave').addEventListener('click',()=>{const v=parseFloat(lenInput.value);if(!(v>0))return;const ft=dispToFt(v);const a=verts[editIdx];const ang=Math.atan2(verts[(editIdx+1)%verts.length].y-a.y,verts[(editIdx+1)%verts.length].x-a.x);verts[(editIdx+1)%verts.length]={x:a.x+ft*PX_PER_FT*Math.cos(ang),y:a.y+ft*PX_PER_FT*Math.sin(ang)};railFlags[editIdx]=railChk.checked;modal.hide();draw();});
+    document.getElementById('lenSave').addEventListener('click',()=>{const v=parseFloat(lenInput.value);if(!(v>0)||!edit)return;const ft=dispToFt(v);const shape=shapes[edit.s];const a=shape.verts[edit.i];const bIdx=(edit.i+1)%shape.verts.length;const ang=Math.atan2(shape.verts[bIdx].y-a.y,shape.verts[bIdx].x-a.x);shape.verts[bIdx]={x:a.x+ft*PX_PER_FT*Math.cos(ang),y:a.y+ft*PX_PER_FT*Math.sin(ang)};shape.railFlags[edit.i]=railChk.checked;modal.hide();edit=null;draw();});
 
     /* ===== pointer events ===== */
-    cvs.addEventListener('pointerdown',e=>{const rect=cvs.getBoundingClientRect();const pt={x:e.clientX-rect.left,y:e.clientY-rect.top};const v=hitV(pt);if(v!==-1){dragIdx=v;cvs.setPointerCapture(e.pointerId);return;}if(hoverIdx!==null){editIdx=hoverIdx;const lenFt=dist(verts[editIdx],verts[(editIdx+1)%verts.length])/PX_PER_FT;lenInput.value=unit==='ft'?lenFt.toFixed(2):(lenFt*12).toFixed(1);railChk.checked=!!railFlags[editIdx];modal.show();return;}if(closed)return;if(preview){verts.push({...preview});railFlags.push(false);preview=null;}else{verts.push(pt);}draw();});
-    cvs.addEventListener('pointermove',e=>{const rect=cvs.getBoundingClientRect();const pos={x:e.clientX-rect.left,y:e.clientY-rect.top};if(dragIdx!==null){verts[dragIdx]=pos;draw();return;}if(!closed&&verts.length){const last=verts.at(-1);const ang=snapAngle(Math.atan2(pos.y-last.y,pos.x-last.x));const len=Math.hypot(pos.x-last.x,pos.y-last.y);preview={x:last.x+len*Math.cos(ang),y:last.y+len*Math.sin(ang)};}updHover(pos);draw();});
-    cvs.addEventListener('pointerup',e=>{if(dragIdx!==null){dragIdx=null;cvs.releasePointerCapture(e.pointerId);draw();}});
-    cvs.addEventListener('pointerleave',()=>{preview=null;hoverIdx=null;draw();});
+    cvs.addEventListener('pointerdown',e=>{const rect=cvs.getBoundingClientRect();const pt={x:e.clientX-rect.left,y:e.clientY-rect.top};const hv=hitV(pt);if(hv){drag=hv;cvs.setPointerCapture(e.pointerId);return;}if(hover){edit=hover;const shape=shapes[hover.s];const lenFt=dist(shape.verts[hover.i],shape.verts[(hover.i+1)%shape.verts.length])/PX_PER_FT;lenInput.value=unit==='ft'?lenFt.toFixed(2):(lenFt*12).toFixed(1);railChk.checked=!!shape.railFlags[hover.i];modal.show();return;}let curr=shapes.at(-1);if(!curr||curr.closed){curr={verts:[pt],railFlags:[],closed:false};shapes.push(curr);}else if(preview){curr.verts.push({...preview});curr.railFlags.push(false);preview=null;}else{curr.verts.push(pt);}draw();});
+    cvs.addEventListener('pointermove',e=>{const rect=cvs.getBoundingClientRect();const pos={x:e.clientX-rect.left,y:e.clientY-rect.top};if(drag){shapes[drag.s].verts[drag.v]=pos;draw();return;}const curr=shapes.at(-1);if(curr&&!curr.closed&&curr.verts.length){const last=curr.verts.at(-1);const ang=snapAngle(Math.atan2(pos.y-last.y,pos.x-last.x));const len=Math.hypot(pos.x-last.x,pos.y-last.y);preview={x:last.x+len*Math.cos(ang),y:last.y+len*Math.sin(ang)};}else{preview=null;}updHover(pos);draw();});
+    cvs.addEventListener('pointerup',e=>{if(drag){drag=null;cvs.releasePointerCapture(e.pointerId);draw();}});
+    cvs.addEventListener('pointerleave',()=>{preview=null;hover=null;draw();});
 
     /* ===== toolbar ===== */
-    document.getElementById('finishBtn').onclick=()=>{if(verts.length>=3){closed=true;preview=null;if(railFlags.length<verts.length)railFlags.length=verts.length;draw();}};
-    document.getElementById('undoBtn').onclick=()=>{if(closed)closed=false;else{verts.pop();railFlags.pop();}preview=null;draw();};
-    document.getElementById('clearBtn').onclick=()=>{verts=[];railFlags=[];preview=null;closed=false;hoverIdx=null;draw();};
+    document.getElementById('finishBtn').onclick=()=>{const curr=shapes.at(-1);if(curr&&!curr.closed&&curr.verts.length>=3){curr.closed=true;preview=null;if(curr.railFlags.length<curr.verts.length)curr.railFlags.length=curr.verts.length;draw();}};
+    document.getElementById('undoBtn').onclick=()=>{const curr=shapes.at(-1);if(!curr)return;if(curr.closed)curr.closed=false;else{curr.verts.pop();curr.railFlags.pop();if(!curr.verts.length)shapes.pop();}preview=null;draw();};
+    document.getElementById('clearBtn').onclick=()=>{shapes=[];preview=null;hover=null;draw();};
     document.getElementById('exportBtn').onclick=()=>{
       const padding=30*dpi;
       const out=document.createElement('canvas');
