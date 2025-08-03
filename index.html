@@ -1,0 +1,132 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deck Sketch Tool v12 – unified price (fix duplicate var)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body{padding:1rem;user-select:none}
+    #deckCanvas{background:#fff;background-image:radial-gradient(circle,#ced4da 1px,transparent 1px);background-size:20px 20px;border:2px dashed #6c757d;width:100%;height:65vh;display:block;touch-action:none;cursor:crosshair}
+    .toolbar>*{margin-right:.5rem;margin-bottom:.5rem}
+    .toolbar select{min-width:90px}
+  </style>
+</head>
+<body>
+  <h2 class="mb-3">Deck Sketch Tool <small class="text-muted">v12</small></h2>
+  <div class="toolbar d-flex flex-wrap align-items-center mb-2">
+    <button id="finishBtn" class="btn btn-success">Finish</button>
+    <button id="undoBtn" class="btn btn-warning">Undo</button>
+    <button id="clearBtn" class="btn btn-danger">Clear</button>
+    <div class="input-group" style="width:auto;">
+      <label class="input-group-text" for="unitSel">Units</label>
+      <select id="unitSel" class="form-select form-select-sm">
+        <option value="ft">Feet</option>
+        <option value="in" selected>Inches</option>
+      </select>
+    </div>
+  </div>
+
+  <canvas id="deckCanvas"></canvas>
+  <div class="mt-3 small">
+    <strong>Area:</strong> <span id="areaOut">0</span> ft² &nbsp;|&nbsp;
+    <strong>Price:</strong> $<span id="priceOut">0</span> &nbsp;|&nbsp;
+    <strong>Railing&nbsp;LF:</strong> <span id="railOut">0</span> ft
+  </div>
+
+  <!-- Segment modal -->
+  <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title" id="lenModalTitle">Edit Segment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Length</label><input id="lenInput" type="number" step="0.1" class="form-control"></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="railChk"><label class="form-check-label" for="railChk">This side has railing</label></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button id="lenSave" class="btn btn-primary">Save</button></div>
+    </div></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function(){
+    /* ===== constants ===== */
+    const PX_PER_FT=10,LABEL_OFFSET=10,HIT_R=6,EDGE_HIT=6,HOVER_HIT=10,SNAP_MARK_R=6,SNAP_STEP_RAD=Math.PI/12;
+
+    /* ===== helpers ===== */
+    const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+    const snapAngle=a=>Math.round(a/SNAP_STEP_RAD)*SNAP_STEP_RAD;
+    const signedArea=pts=>pts.reduce((s,p,i)=>{const q=pts[(i+1)%pts.length];return s+p.x*q.y-q.x*p.y;},0)/2;
+    const polyArea=pts=>Math.abs(signedArea(pts));
+    const pointSegDist=(p,a,b)=>{const l2=dist(a,b)**2;if(!l2)return dist(p,a);let t=((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/l2;t=Math.max(0,Math.min(1,t));return dist(p,{x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});};
+
+    /* ===== state ===== */
+    const cvs=document.getElementById('deckCanvas');const ctx=cvs.getContext('2d');const dpi=window.devicePixelRatio||1;
+    let verts=[],railFlags=[],preview=null,closed=false,unit='in';
+    let hoverIdx=null,dragIdx=null,editIdx=null;
+
+    /* ===== DOM refs ===== */
+    const areaOut=document.getElementById('areaOut');
+    const priceOut=document.getElementById('priceOut');
+    const railOut=document.getElementById('railOut');
+    const lenInput=document.getElementById('lenInput');
+    const railChk=document.getElementById('railChk');
+    const modal=new bootstrap.Modal(document.getElementById('lenModal'));
+
+    /* ===== conversions ===== */
+    const ftToDisp=ft=>unit==='ft'?ft.toFixed(1):Math.round(ft*12);
+    const suff=()=>unit==='ft'?'′':'″';
+    const dispToFt=v=>unit==='ft'?v:v/12;
+
+    /* ===== resize ===== */
+    function fit(){const r=cvs.getBoundingClientRect();cvs.width=r.width*dpi;cvs.height=r.height*dpi;ctx.setTransform(dpi,0,0,dpi,0,0);draw();}
+    window.addEventListener('resize',fit);fit();
+
+    document.getElementById('unitSel').addEventListener('change',e=>{unit=e.target.value;draw();});
+
+    /* ===== drawing primitives ===== */
+    function drawSnap(p){ctx.fillStyle='limegreen';ctx.beginPath();ctx.arc(p.x,p.y,SNAP_MARK_R,0,Math.PI*2);ctx.fill();}
+            function drawLabel(a,b,i,isPrev=false){
+      const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
+      // perpendicular unit normal
+      let nx=b.y-a.y, ny=-(b.x-a.x);
+      if(!isPrev && closed && signedArea(verts)>0){ nx=-nx; ny=-ny; }
+      const len=Math.hypot(nx,ny)||1; nx/=len; ny/=len;
+      const OFFSET=24; // px away from line
+      const x=midX + nx*OFFSET;
+      const y=midY + ny*OFFSET;
+      const lenFt=dist(a,b)/PX_PER_FT;
+      ctx.save();
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillStyle=isPrev?'#ff0000':(railFlags[i]?'#0d6efd':'#343a40');
+      ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i]?' R':''}`,x,y);
+      ctx.restore();
+    }
+    const hitV=p=>verts.findIndex(v=>dist(v,p)<HIT_R);
+    function railSum(){return railFlags.reduce((s,f,i)=>f?s+dist(verts[i],verts[(i+1)%verts.length])/PX_PER_FT:s,0);}
+
+    /* ===== draw ===== */
+    function draw(){const r=cvs.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineWidth=2;ctx.font='12px sans-serif';ctx.textBaseline='bottom'; ctx.textAlign='left';if(verts.length){ctx.strokeStyle='#0d6efd';ctx.fillStyle='rgba(13,110,253,.1)';ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);verts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));if(closed)ctx.closePath();ctx.stroke();if(closed)ctx.fill();}if(hoverIdx!==null&&verts.length>1){const a=verts[hoverIdx],b=verts[(hoverIdx+1)%verts.length];ctx.lineWidth=8;ctx.strokeStyle='rgba(13,110,253,.3)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.lineWidth=2;}if(preview&&verts.length&&!closed){ctx.setLineDash([5,5]);ctx.strokeStyle='red';ctx.beginPath();ctx.moveTo(verts.at(-1).x,verts.at(-1).y);ctx.lineTo(preview.x,preview.y);ctx.stroke();ctx.setLineDash([]);drawLabel(verts.at(-1),preview,verts.length-1,true);drawSnap(preview);}if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++)drawLabel(verts[i],verts[(i+1)%verts.length],i);}ctx.fillStyle='#212529';verts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});const areaFt=polyArea(verts)/(PX_PER_FT**2);const railFt=railSum();const totalPrice=areaFt*5+railFt*8;areaOut.textContent=areaFt.toFixed(1);railOut.textContent=railFt.toFixed(1);priceOut.textContent=totalPrice.toFixed(2);}
+
+    /* ===== hover ===== */
+    function updHover(pos){hoverIdx=null;if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++){if(pointSegDist(pos,verts[i],verts[(i+1)%verts.length])<HOVER_HIT){hoverIdx=i;break;}}}}
+
+    /* ===== modal save ===== */
+    document.getElementById('lenSave').addEventListener('click',()=>{const v=parseFloat(lenInput.value);if(!(v>0))return;const ft=dispToFt(v);const a=verts[editIdx];const ang=Math.atan2(verts[(editIdx+1)%verts.length].y-a.y,verts[(editIdx+1)%verts.length].x-a.x);verts[(editIdx+1)%verts.length]={x:a.x+ft*PX_PER_FT*Math.cos(ang),y:a.y+ft*PX_PER_FT*Math.sin(ang)};railFlags[editIdx]=railChk.checked;modal.hide();draw();});
+
+    /* ===== pointer events ===== */
+    cvs.addEventListener('pointerdown',e=>{const rect=cvs.getBoundingClientRect();const pt={x:e.clientX-rect.left,y:e.clientY-rect.top};const v=hitV(pt);if(v!==-1){dragIdx=v;cvs.setPointerCapture(e.pointerId);return;}if(hoverIdx!==null){editIdx=hoverIdx;const lenFt=dist(verts[editIdx],verts[(editIdx+1)%verts.length])/PX_PER_FT;lenInput.value=unit==='ft'?lenFt.toFixed(2):(lenFt*12).toFixed(1);railChk.checked=!!railFlags[editIdx];modal.show();return;}if(closed)return;if(preview){verts.push({...preview});railFlags.push(false);preview=null;}else{verts.push(pt);}draw();});
+    cvs.addEventListener('pointermove',e=>{const rect=cvs.getBoundingClientRect();const pos={x:e.clientX-rect.left,y:e.clientY-rect.top};if(dragIdx!==null){verts[dragIdx]=pos;draw();return;}if(!closed&&verts.length){const last=verts.at(-1);const ang=snapAngle(Math.atan2(pos.y-last.y,pos.x-last.x));const len=Math.hypot(pos.x-last.x,pos.y-last.y);preview={x:last.x+len*Math.cos(ang),y:last.y+len*Math.sin(ang)};}updHover(pos);draw();});
+    cvs.addEventListener('pointerup',e=>{if(dragIdx!==null){dragIdx=null;cvs.releasePointerCapture(e.pointerId);draw();}});
+    cvs.addEventListener('pointerleave',()=>{preview=null;hoverIdx=null;draw();});
+
+    /* ===== toolbar ===== */
+    document.getElementById('finishBtn').onclick=()=>{if(verts.length>=3){closed=true;preview=null;if(railFlags.length<verts.length)railFlags.length=verts.length;draw();}};
+    document.getElementById('undoBtn').onclick=()=>{if(closed)closed=false;else{verts.pop();railFlags.pop();}preview=null;draw();};
+    document.getElementById('clearBtn').onclick=()=>{verts=[];railFlags=[];preview=null;closed=false;hoverIdx=null;draw();};
+  })();
+  </script>
+</body>
+</html>
