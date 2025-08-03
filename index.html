@@ -20,7 +20,7 @@
     <button id="finishBtn" class="btn btn-success">Finish</button>
     <button id="undoBtn" class="btn btn-warning">Undo</button>
     <button id="clearBtn" class="btn btn-danger">Clear</button>
-    <button id="exportBtn" class="btn btn-secondary">Export PNG</button>
+    <button id="exportBtn" class="btn btn-secondary">Export JPG</button>
     <div class="input-group" style="width:auto;">
       <label class="input-group-text" for="unitSel">Units</label>
       <select id="unitSel" class="form-select form-select-sm">
@@ -127,7 +127,20 @@
     document.getElementById('finishBtn').onclick=()=>{if(verts.length>=3){closed=true;preview=null;if(railFlags.length<verts.length)railFlags.length=verts.length;draw();}};
     document.getElementById('undoBtn').onclick=()=>{if(closed)closed=false;else{verts.pop();railFlags.pop();}preview=null;draw();};
     document.getElementById('clearBtn').onclick=()=>{verts=[];railFlags=[];preview=null;closed=false;hoverIdx=null;draw();};
-    document.getElementById('exportBtn').onclick=()=>{const link=document.createElement('a');link.href=cvs.toDataURL('image/png');link.download='deck.png';link.click();};
+    document.getElementById('exportBtn').onclick=()=>{
+      const padding=30*dpi;
+      const out=document.createElement('canvas');
+      out.width=cvs.width+padding*2;
+      out.height=cvs.height+padding*2;
+      const octx=out.getContext('2d');
+      octx.fillStyle='#fff';
+      octx.fillRect(0,0,out.width,out.height);
+      octx.drawImage(cvs,padding,padding);
+      const link=document.createElement('a');
+      link.href=out.toDataURL('image/jpeg');
+      link.download='deck.jpg';
+      link.click();
+    };
   })();
   </script>
 </body>
