@@ -1,133 +1,580 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deck Sketch Tool v12 – unified price (fix duplicate var)</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deck Sketch & Estimate Tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
   <style>
-    body{padding:1rem;user-select:none}
-    #deckCanvas{background:#fff;background-image:radial-gradient(circle,#ced4da 1px,transparent 1px);background-size:20px 20px;border:2px dashed #6c757d;width:100%;height:65vh;display:block;touch-action:none;cursor:crosshair}
-    .toolbar>*{margin-right:.5rem;margin-bottom:.5rem}
-    .toolbar select{min-width:90px}
+    body { background: #f8f9fa; }
+    h1 span { font-size: 1.25rem; font-weight: 400; }
+    #deckCanvas {
+      background: #fff;
+      background-image: radial-gradient(circle, #ced4da 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 2px dashed #6c757d;
+      width: 100%;
+      height: min(60vh, 520px);
+      max-height: 520px;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    @media (max-width: 576px) {
+      #deckCanvas { height: 55vh; }
+    }
+    .toolbar > * { margin-right: .5rem; margin-bottom: .5rem; }
+    .toolbar select { min-width: 90px; }
+    .summary-card span.value { font-weight: 600; }
+    .terms-box {
+      background: #fff;
+      border-radius: .75rem;
+      box-shadow: 0 0.5rem 1rem rgba(33, 37, 41, 0.1);
+      padding: 1.5rem;
+    }
+    label span.req { color: #dc3545; }
   </style>
 </head>
 <body>
-  <h2 class="mb-3">Deck Sketch Tool <small class="text-muted">v12</small></h2>
-  <div class="toolbar d-flex flex-wrap align-items-center mb-2">
-    <button id="finishBtn" class="btn btn-success">Finish</button>
-    <button id="undoBtn" class="btn btn-warning">Undo</button>
-    <button id="clearBtn" class="btn btn-danger">Clear</button>
-    <div class="input-group" style="width:auto;">
-      <label class="input-group-text" for="unitSel">Units</label>
-      <select id="unitSel" class="form-select form-select-sm">
-        <option value="ft">Feet</option>
-        <option value="in" selected>Inches</option>
-      </select>
+  <div class="container py-4">
+    <header class="mb-4 text-center text-lg-start">
+      <h1 class="fw-bold mb-1">Deck Staining Estimate <span class="text-primary d-block d-lg-inline">DeckRepairWA.com</span></h1>
+      <p class="text-muted mb-0">Draw the deck footprint, capture railing lengths, and export a polished estimate for your customer.</p>
+    </header>
+
+    <div class="row g-4 align-items-stretch">
+      <div class="col-12 col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="toolbar d-flex flex-wrap align-items-center mb-3">
+              <button id="finishBtn" class="btn btn-success btn-sm">Finish</button>
+              <button id="undoBtn" class="btn btn-warning btn-sm">Undo</button>
+              <button id="clearBtn" class="btn btn-danger btn-sm">Clear</button>
+              <div class="input-group input-group-sm" style="width:auto;">
+                <label class="input-group-text" for="unitSel">Units</label>
+                <select id="unitSel" class="form-select">
+                  <option value="ft">Feet</option>
+                  <option value="in" selected>Inches</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="deckCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body d-flex flex-column gap-4">
+            <section>
+              <h2 class="h5 fw-semibold mb-3">Customer Details</h2>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label" for="custName">Customer Name <span class="req">*</span></label>
+                  <input type="text" class="form-control" id="custName" placeholder="Jane Doe" />
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="custPhone">Phone</label>
+                  <input type="tel" class="form-control" id="custPhone" placeholder="(555) 123-4567" />
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="proposalDate">Proposal Date</label>
+                  <input type="date" class="form-control" id="proposalDate" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="custAddress">Project Address</label>
+                  <textarea class="form-control" id="custAddress" rows="2" placeholder="123 Main St, Seattle WA"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="summary-card">
+              <h2 class="h5 fw-semibold mb-3">Project Summary</h2>
+              <div class="d-flex flex-column gap-2">
+                <div>Deck Area: <span class="value"><span id="areaOut">0</span> ft²</span></div>
+                <div>Railing Linear Feet: <span class="value"><span id="railOut">0</span> ft</span></div>
+                <div>Estimated Investment: <span class="value">$<span id="priceOut">0</span></span></div>
+              </div>
+            </section>
+
+            <div class="mt-auto">
+              <button id="downloadBtn" class="btn btn-primary w-100">Download Estimate PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="terms-box mt-4">
+      <h2 class="h5 fw-semibold mb-3">Terms &amp; Conditions</h2>
+      <div class="small text-muted" id="termsText">
+        <p class="mb-2"><strong>Estimate Validity:</strong> This estimate is valid for 30 days from the proposal date. Prices are subject to change after this period due to material costs or scheduling availability.</p>
+        <p class="mb-2"><strong>Payment Terms:</strong> A 30% deposit is required to schedule and secure the project. The remaining 70% is due upon completion of the work. A 3% processing fee applies to all online or credit card payments. To avoid this fee, you may pay by cash or check. Late payments may be subject to a $50/day late fee.</p>
+        <p class="mb-2"><strong>Scope of Work:</strong> Work will be performed as described in the estimate. Any additional work or modifications must be agreed upon in writing and may result in additional charges.</p>
+        <p class="mb-2"><strong>Surface Preparation:</strong> The customer is responsible for removing all furniture, décor, plants, and personal belongings from the deck before the project begins, unless otherwise arranged in advance.</p>
+        <p class="mb-2"><strong>Access and Utilities:</strong> Client must provide reasonable access to the property, including water and electricity if needed, for the duration of the project.</p>
+        <p class="mb-2"><strong>Weather Delays:</strong> All work is weather-dependent. Scheduling may be adjusted to ensure safe conditions and proper curing of materials.</p>
+        <p class="mb-2"><strong>Material &amp; Labor Warranty:</strong> All materials are covered under their respective manufacturer warranties. We provide a 6-month labor warranty covering issues like peeling or flaking under normal use.</p>
+        <p class="mb-2"><strong>Color Selection:</strong> Final color/stain selection must be confirmed prior to the project start. Stain samples can be provided upon request.</p>
+        <p class="mb-2"><strong>Property Condition Disclaimer:</strong> While we take care to protect your property, we are not liable for pre-existing conditions or natural movement of aged wood that may affect results.</p>
+        <p class="mb-2"><strong>Clean-Up:</strong> We will clean up and dispose of all job-related debris. Minor overspray or dust is possible and considered normal with outdoor refinishing projects.</p>
+        <p class="mb-2"><strong>Cancellation Policy:</strong> If the client cancels the job within 48 hours of the scheduled start date, the deposit is non-refundable.</p>
+        <p class="mb-0"><strong>Legal &amp; Insurance:</strong> DeckRepairWA.com operates under the license of Alexandria Builders LLC. We are licensed, bonded, and insured in the State of Washington.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lenModalTitle">Edit Segment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Length</label>
+            <input id="lenInput" type="number" step="0.1" class="form-control" />
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="railChk" />
+            <label class="form-check-label" for="railChk">This side has railing</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="lenSave" class="btn btn-primary">Save</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <canvas id="deckCanvas"></canvas>
-  <div class="mt-3 small">
-    <strong>Area:</strong> <span id="areaOut">0</span> ft² &nbsp;|&nbsp;
-    <strong>Price:</strong> $<span id="priceOut">0</span> &nbsp;|&nbsp;
-    <strong>Railing&nbsp;LF:</strong> <span id="railOut">0</span> ft
-  </div>
-
-  <!-- Segment modal -->
-  <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="lenModalTitle">Edit Segment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label">Length</label><input id="lenInput" type="number" step="0.1" class="form-control"></div>
-        <div class="form-check"><input class="form-check-input" type="checkbox" id="railChk"><label class="form-check-label" for="railChk">This side has railing</label></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button id="lenSave" class="btn btn-primary">Save</button></div>
-    </div></div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script>
-  (function(){
-    /* ===== constants ===== */
-    const PX_PER_FT=10,LABEL_OFFSET=10,HIT_R=6,EDGE_HIT=6,HOVER_HIT=10,SNAP_MARK_R=6,SNAP_STEP_RAD=Math.PI/12;
+    (function () {
+      /* ===== constants ===== */
+      const PX_PER_FT = 10,
+        SNAP_STEP_RAD = Math.PI / 12,
+        SNAP_MARK_R = 6,
+        HIT_R = 6,
+        EDGE_HIT = 6,
+        HOVER_HIT = 10;
 
-    /* ===== helpers ===== */
-    const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-    const snapAngle=a=>Math.round(a/SNAP_STEP_RAD)*SNAP_STEP_RAD;
-    const signedArea=pts=>pts.reduce((s,p,i)=>{const q=pts[(i+1)%pts.length];return s+p.x*q.y-q.x*p.y;},0)/2;
-    const polyArea=pts=>Math.abs(signedArea(pts));
-    const pointSegDist=(p,a,b)=>{const l2=dist(a,b)**2;if(!l2)return dist(p,a);let t=((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/l2;t=Math.max(0,Math.min(1,t));return dist(p,{x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});};
+      const TERMS_TEXT = `Estimate Validity: This estimate is valid for 30 days from the proposal date. Prices are subject to change after this period due to material costs or scheduling availability.
 
-    /* ===== state ===== */
-    const cvs=document.getElementById('deckCanvas');const ctx=cvs.getContext('2d');const dpi=window.devicePixelRatio||1;
-    let verts=[],railFlags=[],preview=null,closed=false,unit='in';
-    let hoverIdx=null,dragIdx=null,editIdx=null;
+Payment Terms: A 30% deposit is required to schedule and secure the project. The remaining 70% is due upon completion of the work. A 3% processing fee applies to all online or credit card payments. To avoid this fee, you may pay by cash or check. Late payments may be subject to a $50/day late fee.
 
-    /* ===== DOM refs ===== */
-    const areaOut=document.getElementById('areaOut');
-    const priceOut=document.getElementById('priceOut');
-    const railOut=document.getElementById('railOut');
-    const lenInput=document.getElementById('lenInput');
-    const railChk=document.getElementById('railChk');
-    const modal=new bootstrap.Modal(document.getElementById('lenModal'));
+Scope of Work: Work will be performed as described in the estimate. Any additional work or modifications must be agreed upon in writing and may result in additional charges.
 
-    /* ===== conversions ===== */
-    const ftToDisp=ft=>unit==='ft'?ft.toFixed(1):Math.round(ft*12);
-    const suff=()=>unit==='ft'?'′':'″';
-    const dispToFt=v=>unit==='ft'?v:v/12;
+Surface Preparation: The customer is responsible for removing all furniture, décor, plants, and personal belongings from the deck before the project begins, unless otherwise arranged in advance.
 
-    /* ===== resize ===== */
-    function fit(){const r=cvs.getBoundingClientRect();cvs.width=r.width*dpi;cvs.height=r.height*dpi;ctx.setTransform(dpi,0,0,dpi,0,0);draw();}
-    window.addEventListener('resize',fit);fit();
+Access and Utilities: Client must provide reasonable access to the property, including water and electricity if needed, for the duration of the project.
 
-    document.getElementById('unitSel').addEventListener('change',e=>{unit=e.target.value;draw();});
+Weather Delays: All work is weather-dependent. Scheduling may be adjusted to ensure safe conditions and proper curing of materials.
 
-    /* ===== drawing primitives ===== */
-    function drawSnap(p){ctx.fillStyle='limegreen';ctx.beginPath();ctx.arc(p.x,p.y,SNAP_MARK_R,0,Math.PI*2);ctx.fill();}
-            function drawLabel(a,b,i,isPrev=false){
-      const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
-      // perpendicular unit normal
-      let nx=b.y-a.y, ny=-(b.x-a.x);
-      if(!isPrev && closed && signedArea(verts)>0){ nx=-nx; ny=-ny; }
-      const len=Math.hypot(nx,ny)||1; nx/=len; ny/=len;
-      const OFFSET=24; // px away from line
-      const x=midX + nx*OFFSET;
-      const y=midY + ny*OFFSET;
-      const lenFt=dist(a,b)/PX_PER_FT;
-      ctx.save();
-      ctx.textAlign='center';
-      ctx.textBaseline='middle';
-      ctx.fillStyle=isPrev?'#ff0000':(railFlags[i]?'#0d6efd':'#343a40');
-      ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i]?' R':''}`,x,y);
-      ctx.restore();
-    }
-    const hitV=p=>verts.findIndex(v=>dist(v,p)<HIT_R);
-    function railSum(){return railFlags.reduce((s,f,i)=>f?s+dist(verts[i],verts[(i+1)%verts.length])/PX_PER_FT:s,0);}
+Material & Labor Warranty: All materials are covered under their respective manufacturer warranties. We provide a 6-month labor warranty covering issues like peeling or flaking under normal use.
 
-    /* ===== draw ===== */
-    function draw(){const r=cvs.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineWidth=2;ctx.font='12px sans-serif';ctx.textBaseline='bottom'; ctx.textAlign='left';if(verts.length){ctx.strokeStyle='#0d6efd';ctx.fillStyle='rgba(13,110,253,.1)';ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);verts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));if(closed)ctx.closePath();ctx.stroke();if(closed)ctx.fill();}if(hoverIdx!==null&&verts.length>1){const a=verts[hoverIdx],b=verts[(hoverIdx+1)%verts.length];ctx.lineWidth=8;ctx.strokeStyle='rgba(13,110,253,.3)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.lineWidth=2;}if(preview&&verts.length&&!closed){ctx.setLineDash([5,5]);ctx.strokeStyle='red';ctx.beginPath();ctx.moveTo(verts.at(-1).x,verts.at(-1).y);ctx.lineTo(preview.x,preview.y);ctx.stroke();ctx.setLineDash([]);drawLabel(verts.at(-1),preview,verts.length-1,true);drawSnap(preview);}if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++)drawLabel(verts[i],verts[(i+1)%verts.length],i);}ctx.fillStyle='#212529';verts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});const areaFt=polyArea(verts)/(PX_PER_FT**2);const railFt=railSum();const totalPrice=areaFt*5+railFt*8;areaOut.textContent=areaFt.toFixed(1);railOut.textContent=railFt.toFixed(1);priceOut.textContent=totalPrice.toFixed(2);}
+Color Selection: Final color/stain selection must be confirmed prior to the project start. Stain samples can be provided upon request.
 
-    /* ===== hover ===== */
-    function updHover(pos){hoverIdx=null;if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++){if(pointSegDist(pos,verts[i],verts[(i+1)%verts.length])<HOVER_HIT){hoverIdx=i;break;}}}}
+Property Condition Disclaimer: While we take care to protect your property, we are not liable for pre-existing conditions or natural movement of aged wood that may affect results.
 
-    /* ===== modal save ===== */
-    document.getElementById('lenSave').addEventListener('click',()=>{const v=parseFloat(lenInput.value);if(!(v>0))return;const ft=dispToFt(v);const a=verts[editIdx];const ang=Math.atan2(verts[(editIdx+1)%verts.length].y-a.y,verts[(editIdx+1)%verts.length].x-a.x);verts[(editIdx+1)%verts.length]={x:a.x+ft*PX_PER_FT*Math.cos(ang),y:a.y+ft*PX_PER_FT*Math.sin(ang)};railFlags[editIdx]=railChk.checked;modal.hide();draw();});
+Clean-Up: We will clean up and dispose of all job-related debris. Minor overspray or dust is possible and considered normal with outdoor refinishing projects.
 
-    /* ===== pointer events ===== */
-    cvs.addEventListener('pointerdown',e=>{const rect=cvs.getBoundingClientRect();const pt={x:e.clientX-rect.left,y:e.clientY-rect.top};const v=hitV(pt);if(v!==-1){dragIdx=v;cvs.setPointerCapture(e.pointerId);return;}if(hoverIdx!==null){editIdx=hoverIdx;const lenFt=dist(verts[editIdx],verts[(editIdx+1)%verts.length])/PX_PER_FT;lenInput.value=unit==='ft'?lenFt.toFixed(2):(lenFt*12).toFixed(1);railChk.checked=!!railFlags[editIdx];modal.show();return;}if(closed)return;if(preview){verts.push({...preview});railFlags.push(false);preview=null;}else{verts.push(pt);}draw();});
-    cvs.addEventListener('pointermove',e=>{const rect=cvs.getBoundingClientRect();const pos={x:e.clientX-rect.left,y:e.clientY-rect.top};if(dragIdx!==null){verts[dragIdx]=pos;draw();return;}if(!closed&&verts.length){const last=verts.at(-1);const ang=snapAngle(Math.atan2(pos.y-last.y,pos.x-last.x));const len=Math.hypot(pos.x-last.x,pos.y-last.y);preview={x:last.x+len*Math.cos(ang),y:last.y+len*Math.sin(ang)};}updHover(pos);draw();});
-    cvs.addEventListener('pointerup',e=>{if(dragIdx!==null){dragIdx=null;cvs.releasePointerCapture(e.pointerId);draw();}});
-    cvs.addEventListener('pointerleave',()=>{preview=null;hoverIdx=null;draw();});
+Cancellation Policy: If the client cancels the job within 48 hours of the scheduled start date, the deposit is non-refundable.
 
-    /* ===== toolbar ===== */
-    document.getElementById('finishBtn').onclick=()=>{if(verts.length>=3){closed=true;preview=null;if(railFlags.length<verts.length)railFlags.length=verts.length;draw();}};
-    document.getElementById('undoBtn').onclick=()=>{if(closed)closed=false;else{verts.pop();railFlags.pop();}preview=null;draw();};
-    document.getElementById('clearBtn').onclick=()=>{verts=[];railFlags=[];preview=null;closed=false;hoverIdx=null;draw();};
-  })();
+Legal & Insurance: DeckRepairWA.com operates under the license of Alexandria Builders LLC. We are licensed, bonded, and insured in the State of Washington.`;
+
+      /* ===== helpers ===== */
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const snapAngle = (a) => Math.round(a / SNAP_STEP_RAD) * SNAP_STEP_RAD;
+      const signedArea = (pts) => pts.reduce((s, p, i) => {
+        const q = pts[(i + 1) % pts.length];
+        return s + p.x * q.y - q.x * p.y;
+      }, 0) / 2;
+      const polyArea = (pts) => Math.abs(signedArea(pts));
+      const pointSegDist = (p, a, b) => {
+        const l2 = dist(a, b) ** 2;
+        if (!l2) return dist(p, a);
+        let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return dist(p, { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
+      };
+
+      /* ===== state ===== */
+      const cvs = document.getElementById('deckCanvas');
+      const ctx = cvs.getContext('2d');
+      const dpi = window.devicePixelRatio || 1;
+      let verts = [],
+        railFlags = [],
+        preview = null,
+        closed = false,
+        unit = 'in';
+      let hoverIdx = null,
+        dragIdx = null,
+        editIdx = null;
+
+      /* ===== DOM refs ===== */
+      const areaOut = document.getElementById('areaOut');
+      const priceOut = document.getElementById('priceOut');
+      const railOut = document.getElementById('railOut');
+      const lenInput = document.getElementById('lenInput');
+      const railChk = document.getElementById('railChk');
+      const modal = new bootstrap.Modal(document.getElementById('lenModal'));
+      const unitSel = document.getElementById('unitSel');
+      const nameInput = document.getElementById('custName');
+      const phoneInput = document.getElementById('custPhone');
+      const addressInput = document.getElementById('custAddress');
+      const dateInput = document.getElementById('proposalDate');
+      const downloadBtn = document.getElementById('downloadBtn');
+
+      /* ===== conversions ===== */
+      const ftToDisp = (ft) => (unit === 'ft' ? ft.toFixed(1) : Math.round(ft * 12));
+      const suff = () => (unit === 'ft' ? '′' : '″');
+      const dispToFt = (v) => (unit === 'ft' ? v : v / 12);
+
+      /* ===== initialize defaults ===== */
+      const today = new Date();
+      const isoDate = today.toISOString().split('T')[0];
+      dateInput.value = isoDate;
+
+      /* ===== resize ===== */
+      function fit() {
+        const r = cvs.getBoundingClientRect();
+        cvs.width = r.width * dpi;
+        cvs.height = r.height * dpi;
+        ctx.setTransform(dpi, 0, 0, dpi, 0, 0);
+        draw();
+      }
+      window.addEventListener('resize', fit);
+      fit();
+
+      unitSel.addEventListener('change', (e) => {
+        unit = e.target.value;
+        draw();
+      });
+
+      /* ===== drawing primitives ===== */
+      function drawSnap(p) {
+        ctx.fillStyle = 'limegreen';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, SNAP_MARK_R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawLabel(a, b, i, isPrev = false) {
+        const midX = (a.x + b.x) / 2,
+          midY = (a.y + b.y) / 2;
+        let nx = b.y - a.y,
+          ny = -(b.x - a.x);
+        if (!isPrev && closed && signedArea(verts) > 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len;
+        ny /= len;
+        const OFFSET = 24;
+        const x = midX + nx * OFFSET;
+        const y = midY + ny * OFFSET;
+        const lenFt = dist(a, b) / PX_PER_FT;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isPrev ? '#ff0000' : railFlags[i] ? '#0d6efd' : '#343a40';
+        ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i] ? ' R' : ''}`, x, y);
+        ctx.restore();
+      }
+
+      const hitV = (p) => verts.findIndex((v) => dist(v, p) < HIT_R);
+      function railSum() {
+        return railFlags.reduce(
+          (s, f, i) => (f ? s + dist(verts[i], verts[(i + 1) % verts.length]) / PX_PER_FT : s),
+          0
+        );
+      }
+
+      /* ===== draw ===== */
+      function draw() {
+        const r = cvs.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+        ctx.lineWidth = 2;
+        ctx.font = '12px sans-serif';
+        ctx.textBaseline = 'bottom';
+        ctx.textAlign = 'left';
+        if (verts.length) {
+          ctx.strokeStyle = '#0d6efd';
+          ctx.fillStyle = 'rgba(13,110,253,.08)';
+          ctx.beginPath();
+          ctx.moveTo(verts[0].x, verts[0].y);
+          verts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y));
+          if (closed) ctx.closePath();
+          ctx.stroke();
+          if (closed) ctx.fill();
+        }
+        if (hoverIdx !== null && verts.length > 1) {
+          const a = verts[hoverIdx],
+            b = verts[(hoverIdx + 1) % verts.length];
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = 'rgba(13,110,253,.3)';
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+          ctx.lineWidth = 2;
+        }
+        if (preview && verts.length && !closed) {
+          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = '#dc3545';
+          ctx.beginPath();
+          ctx.moveTo(verts.at(-1).x, verts.at(-1).y);
+          ctx.lineTo(preview.x, preview.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          drawLabel(verts.at(-1), preview, verts.length - 1, true);
+          drawSnap(preview);
+        }
+        if (verts.length > 1) {
+          const n = closed ? verts.length : verts.length - 1;
+          for (let i = 0; i < n; i++) drawLabel(verts[i], verts[(i + 1) % verts.length], i);
+        }
+        ctx.fillStyle = '#212529';
+        verts.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        const areaFt = polyArea(verts) / PX_PER_FT ** 2;
+        const railFt = railSum();
+        const totalPrice = areaFt * 5 + railFt * 8;
+        areaOut.textContent = areaFt.toFixed(1);
+        railOut.textContent = railFt.toFixed(1);
+        priceOut.textContent = totalPrice.toFixed(2);
+      }
+
+      /* ===== hover ===== */
+      function updHover(pos) {
+        hoverIdx = null;
+        if (verts.length > 1) {
+          const n = closed ? verts.length : verts.length - 1;
+          for (let i = 0; i < n; i++) {
+            if (pointSegDist(pos, verts[i], verts[(i + 1) % verts.length]) < HOVER_HIT) {
+              hoverIdx = i;
+              break;
+            }
+          }
+        }
+      }
+
+      /* ===== modal save ===== */
+      document.getElementById('lenSave').addEventListener('click', () => {
+        const v = parseFloat(lenInput.value);
+        if (!(v > 0)) return;
+        const ft = dispToFt(v);
+        const a = verts[editIdx];
+        const ang = Math.atan2(verts[(editIdx + 1) % verts.length].y - a.y, verts[(editIdx + 1) % verts.length].x - a.x);
+        verts[(editIdx + 1) % verts.length] = {
+          x: a.x + ft * PX_PER_FT * Math.cos(ang),
+          y: a.y + ft * PX_PER_FT * Math.sin(ang)
+        };
+        railFlags[editIdx] = railChk.checked;
+        modal.hide();
+        draw();
+      });
+
+      /* ===== pointer events ===== */
+      cvs.addEventListener('pointerdown', (e) => {
+        const rect = cvs.getBoundingClientRect();
+        const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const v = hitV(pt);
+        if (v !== -1) {
+          dragIdx = v;
+          cvs.setPointerCapture(e.pointerId);
+          return;
+        }
+        if (hoverIdx !== null) {
+          editIdx = hoverIdx;
+          const lenFt = dist(verts[editIdx], verts[(editIdx + 1) % verts.length]) / PX_PER_FT;
+          lenInput.value = unit === 'ft' ? lenFt.toFixed(2) : (lenFt * 12).toFixed(1);
+          railChk.checked = !!railFlags[editIdx];
+          modal.show();
+          return;
+        }
+        if (closed) return;
+        if (preview) {
+          verts.push({ ...preview });
+          railFlags.push(false);
+          preview = null;
+        } else {
+          verts.push(pt);
+        }
+        draw();
+      });
+
+      cvs.addEventListener('pointermove', (e) => {
+        const rect = cvs.getBoundingClientRect();
+        const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        if (dragIdx !== null) {
+          verts[dragIdx] = pos;
+          draw();
+          return;
+        }
+        if (!closed && verts.length) {
+          const last = verts.at(-1);
+          const ang = snapAngle(Math.atan2(pos.y - last.y, pos.x - last.x));
+          const len = Math.hypot(pos.x - last.x, pos.y - last.y);
+          preview = {
+            x: last.x + len * Math.cos(ang),
+            y: last.y + len * Math.sin(ang)
+          };
+        }
+        updHover(pos);
+        draw();
+      });
+
+      cvs.addEventListener('pointerup', (e) => {
+        if (dragIdx !== null) {
+          dragIdx = null;
+          cvs.releasePointerCapture(e.pointerId);
+          draw();
+        }
+      });
+      cvs.addEventListener('pointerleave', () => {
+        preview = null;
+        hoverIdx = null;
+        draw();
+      });
+
+      /* ===== toolbar ===== */
+      document.getElementById('finishBtn').onclick = () => {
+        if (verts.length >= 3) {
+          closed = true;
+          preview = null;
+          if (railFlags.length < verts.length) railFlags.length = verts.length;
+          draw();
+        }
+      };
+      document.getElementById('undoBtn').onclick = () => {
+        if (closed) closed = false;
+        else {
+          verts.pop();
+          railFlags.pop();
+        }
+        preview = null;
+        draw();
+      };
+      document.getElementById('clearBtn').onclick = () => {
+        verts = [];
+        railFlags = [];
+        preview = null;
+        closed = false;
+        hoverIdx = null;
+        draw();
+      };
+
+      /* ===== PDF export ===== */
+      downloadBtn.addEventListener('click', async () => {
+        const name = nameInput.value.trim();
+        if (!name) {
+          nameInput.focus();
+          nameInput.classList.add('is-invalid');
+          setTimeout(() => nameInput.classList.remove('is-invalid'), 2000);
+          return;
+        }
+        const phone = phoneInput.value.trim();
+        const address = addressInput.value.trim();
+        const proposalDate = dateInput.value ? new Date(dateInput.value) : new Date();
+        const dateStr = proposalDate.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+
+        const areaVal = areaOut.textContent;
+        const railVal = railOut.textContent;
+        const priceVal = priceOut.textContent;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+        const margin = 48;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const usableWidth = pageWidth - margin * 2;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.text('Deck Staining Estimate', margin, margin + 20);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        doc.text('DeckRepairWA.com', margin, margin + 38);
+        doc.text(`Proposal Date: ${dateStr}`, margin, margin + 56);
+
+        let y = margin + 84;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Customer', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        y += 18;
+        const customerLines = [
+          `Name: ${name}`,
+          phone ? `Phone: ${phone}` : null,
+          address ? `Address: ${address}` : null
+        ].filter(Boolean);
+        customerLines.forEach((line) => {
+          doc.text(line, margin, y);
+          y += 16;
+        });
+
+        if (y < margin + 120) y = margin + 120;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Project Summary', margin, y);
+        y += 18;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const summaryLines = [
+          `Deck Area: ${areaVal} square feet`,
+          `Railing Linear Feet: ${railVal} feet`,
+          `Estimated Investment: $${priceVal}`
+        ];
+        summaryLines.forEach((line) => {
+          doc.text(line, margin, y);
+          y += 16;
+        });
+
+        const canvas = document.getElementById('deckCanvas');
+        if (canvas && canvas.width && canvas.height) {
+          const imgData = canvas.toDataURL('image/png');
+          const targetWidth = Math.min(usableWidth, 340);
+          const aspect = canvas.height / canvas.width;
+          const targetHeight = targetWidth * aspect;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.text('Deck Sketch', margin, y + 12);
+          y += 28;
+          doc.addImage(imgData, 'PNG', margin, y, targetWidth, targetHeight);
+          y += targetHeight + 24;
+        }
+
+        if (y > doc.internal.pageSize.getHeight() - margin - 120) {
+          doc.addPage();
+          y = margin;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Terms & Conditions', margin, y);
+        y += 18;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const termLines = doc.splitTextToSize(TERMS_TEXT, usableWidth);
+        doc.text(termLines, margin, y);
+
+        const fileName = `DeckEstimate-${name.replace(/[^a-z0-9]+/gi, '-') || 'customer'}.pdf`;
+        doc.save(fileName);
+      });
+    })();
   </script>
 </body>
 </html>
-
