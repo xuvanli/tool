@@ -40,6 +40,17 @@
       padding: 1.5rem;
     }
     label span.req { color: #dc3545; }
+    .signature-line {
+      width: 220px;
+      height: 1px;
+      background: #adb5bd;
+      margin: 0 auto 0;
+    }
+    .signature-mark {
+      font-family: 'Brush Script MT', 'Lucida Handwriting', cursive;
+      font-size: 1.75rem;
+      color: #0d6efd;
+    }
   </style>
 </head>
 <body>
@@ -137,6 +148,11 @@
       <div class="row row-cols-1 row-cols-lg-2 g-3" id="termsGrid"></div>
     </section>
   </div>
+
+  <footer class="py-4 text-center text-muted">
+    <div class="signature-line mb-2"></div>
+    <div class="signature-mark">Alexandria Builders LLC</div>
+  </footer>
 
   <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -734,6 +750,19 @@
           usableWidth
         );
         doc.text(termLines, margin, y);
+
+        const termsDim = doc.getTextDimensions(termLines);
+        let signatureY = y + termsDim.h + 36;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        if (signatureY > pageHeight - margin) {
+          doc.addPage();
+          signatureY = margin + 36;
+        }
+        doc.setDrawColor(173, 181, 189);
+        doc.line(pageWidth - margin - 160, signatureY - 16, pageWidth - margin, signatureY - 16);
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(12);
+        doc.text('Alexandria Builders LLC', pageWidth - margin, signatureY, { align: 'right' });
 
         const fileName = `Estimate-${name.replace(/[^a-z0-9]+/gi, '-') || 'customer'}.pdf`;
         doc.save(fileName);
