@@ -1,133 +1,744 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deck Sketch Tool v12 – unified price (fix duplicate var)</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deck Sketch & Estimate Tool</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
   <style>
-    body{padding:1rem;user-select:none}
-    #deckCanvas{background:#fff;background-image:radial-gradient(circle,#ced4da 1px,transparent 1px);background-size:20px 20px;border:2px dashed #6c757d;width:100%;height:65vh;display:block;touch-action:none;cursor:crosshair}
-    .toolbar>*{margin-right:.5rem;margin-bottom:.5rem}
-    .toolbar select{min-width:90px}
+    body { background: #f8f9fa; }
+    .brand-logo {
+      max-width: 180px;
+      width: 100%;
+      height: auto;
+    }
+    .summary-card h2 {
+      padding-top: 0.25rem;
+    }
+    #deckCanvas {
+      background: #fff;
+      background-image: radial-gradient(circle, #ced4da 1px, transparent 1px);
+      background-size: 20px 20px;
+      border: 2px dashed #6c757d;
+      width: 100%;
+      height: min(60vh, 520px);
+      max-height: 520px;
+      display: block;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    @media (max-width: 576px) {
+      #deckCanvas { height: 55vh; }
+    }
+    .toolbar > * { margin-right: .5rem; margin-bottom: .5rem; }
+    .toolbar select { min-width: 90px; }
+    .summary-card span.value { font-weight: 600; }
+    .terms-box {
+      background: #fff;
+      border-radius: .75rem;
+      box-shadow: 0 0.5rem 1rem rgba(33, 37, 41, 0.1);
+      padding: 1.5rem;
+    }
+    label span.req { color: #dc3545; }
   </style>
 </head>
 <body>
-  <h2 class="mb-3">Deck Sketch Tool <small class="text-muted">v12</small></h2>
-  <div class="toolbar d-flex flex-wrap align-items-center mb-2">
-    <button id="finishBtn" class="btn btn-success">Finish</button>
-    <button id="undoBtn" class="btn btn-warning">Undo</button>
-    <button id="clearBtn" class="btn btn-danger">Clear</button>
-    <div class="input-group" style="width:auto;">
-      <label class="input-group-text" for="unitSel">Units</label>
-      <select id="unitSel" class="form-select form-select-sm">
-        <option value="ft">Feet</option>
-        <option value="in" selected>Inches</option>
-      </select>
+  <div class="container py-4">
+    <header class="mb-4">
+      <div class="d-flex flex-column flex-lg-row align-items-center align-items-lg-start justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyMjAgNjAiPgogIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIyMjAiIGhlaWdodD0iNjAiIHJ4PSIxMCIgZmlsbD0iIzBkNmVmZCIvPgogIDxwYXRoIGQ9Ik0yMCA0MiBMMzAgMTggTDQwIDQyIFoiIGZpbGw9IiNmZmZmZmYiIG9wYWNpdHk9IjAuOSIvPgogIDxyZWN0IHg9IjQ4IiB5PSIxOCIgd2lkdGg9IjQiIGhlaWdodD0iMjQiIGZpbGw9IiNmZmZmZmYiIG9wYWNpdHk9IjAuNyIvPgogIDx0ZXh0IHg9IjU4IiB5PSIzNiIgZm9udC1mYW1pbHk9IidIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjZmZmZmZmIiBmb250LXdlaWdodD0iNjAwIj5BbGV4YW5kcmlhIEJ1aWxkZXJzPC90ZXh0PgogIDx0ZXh0IHg9IjU4IiB5PSI1MCIgZm9udC1mYW1pbHk9IidIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjZDBlM2ZmIj5MTEM8L3RleHQ+Cjwvc3ZnPg==" alt="Alexandria Builders LLC logo" class="brand-logo" />
+          <div class="text-center text-lg-start">
+            <h1 class="fw-bold mb-1">Estimate</h1>
+            <p class="text-muted mb-0">Draw the deck footprint, capture railing lengths, and export a polished estimate for your customer.</p>
+          </div>
+        </div>
+        <div class="text-center text-lg-end">
+          <div class="fw-semibold text-primary">Alexandria Builders LLC</div>
+          <div class="text-muted">Proposal Date: <span id="headerProposalDate"></span></div>
+        </div>
+      </div>
+    </header>
+
+    <div class="row g-4 align-items-stretch">
+      <div class="col-12 col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="toolbar d-flex flex-wrap align-items-center mb-3">
+              <button id="finishBtn" class="btn btn-success btn-sm">Finish</button>
+              <button id="undoBtn" class="btn btn-warning btn-sm">Undo</button>
+              <button id="clearBtn" class="btn btn-danger btn-sm">Clear</button>
+              <div class="input-group input-group-sm" style="width:auto;">
+                <label class="input-group-text" for="unitSel">Units</label>
+                <select id="unitSel" class="form-select">
+                  <option value="ft">Feet</option>
+                  <option value="in" selected>Inches</option>
+                </select>
+              </div>
+            </div>
+            <canvas id="deckCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body d-flex flex-column gap-4">
+            <section>
+              <h2 class="h5 fw-semibold mb-3">Customer Details</h2>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label" for="custName">Customer Name <span class="req">*</span></label>
+                  <input type="text" class="form-control" id="custName" placeholder="Jane Doe" />
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="custPhone">Phone</label>
+                  <input type="tel" class="form-control" id="custPhone" placeholder="(555) 123-4567" />
+                </div>
+                <div class="col-sm-6">
+                  <label class="form-label" for="proposalDate">Proposal Date</label>
+                  <input type="date" class="form-control" id="proposalDate" />
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="custAddress">Project Address</label>
+                  <textarea class="form-control" id="custAddress" rows="2" placeholder="123 Main St, Seattle WA"></textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="summary-card">
+              <h2 class="h5 fw-semibold mb-3">Project Summary</h2>
+              <div class="d-flex flex-column gap-2">
+                <div>Deck Area: <span class="value"><span id="areaOut">0</span> ft²</span></div>
+                <div>Railing Linear Feet: <span class="value"><span id="railOut">0</span> ft</span></div>
+                <div>Estimated Investment: <span class="value">$<span id="priceOut">0</span></span></div>
+              </div>
+            </section>
+
+            <div class="mt-auto">
+              <button id="downloadBtn" class="btn btn-primary w-100">Download Estimate PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section class="terms-box mt-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+          <h2 class="h5 fw-semibold mb-1">Terms &amp; Conditions</h2>
+          <p class="text-muted mb-0">Please review and share with the customer before scheduling.</p>
+        </div>
+        <div class="text-muted small text-md-end">
+          <div><span class="text-secondary">Customer:</span> <span id="termsCustomer">—</span></div>
+          <div><span class="text-secondary">Proposal Date:</span> <span id="termsDate">—</span></div>
+        </div>
+      </div>
+      <div class="row row-cols-1 row-cols-lg-2 g-3" id="termsGrid"></div>
+    </section>
+  </div>
+
+  <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="lenModalTitle">Edit Segment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Length</label>
+            <input id="lenInput" type="number" step="0.1" class="form-control" />
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="railChk" />
+            <label class="form-check-label" for="railChk">This side has railing</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button id="lenSave" class="btn btn-primary">Save</button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <canvas id="deckCanvas"></canvas>
-  <div class="mt-3 small">
-    <strong>Area:</strong> <span id="areaOut">0</span> ft² &nbsp;|&nbsp;
-    <strong>Price:</strong> $<span id="priceOut">0</span> &nbsp;|&nbsp;
-    <strong>Railing&nbsp;LF:</strong> <span id="railOut">0</span> ft
-  </div>
-
-  <!-- Segment modal -->
-  <div class="modal fade" id="lenModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-      <div class="modal-header"><h5 class="modal-title" id="lenModalTitle">Edit Segment</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body">
-        <div class="mb-3"><label class="form-label">Length</label><input id="lenInput" type="number" step="0.1" class="form-control"></div>
-        <div class="form-check"><input class="form-check-input" type="checkbox" id="railChk"><label class="form-check-label" for="railChk">This side has railing</label></div>
-      </div>
-      <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button id="lenSave" class="btn btn-primary">Save</button></div>
-    </div></div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script>
-  (function(){
-    /* ===== constants ===== */
-    const PX_PER_FT=10,LABEL_OFFSET=10,HIT_R=6,EDGE_HIT=6,HOVER_HIT=10,SNAP_MARK_R=6,SNAP_STEP_RAD=Math.PI/12;
+    (function () {
+      /* ===== constants ===== */
+      const PX_PER_FT = 10,
+        SNAP_STEP_RAD = Math.PI / 12,
+        SNAP_MARK_R = 6,
+        HIT_R = 6,
+        EDGE_HIT = 6,
+        HOVER_HIT = 10;
 
-    /* ===== helpers ===== */
-    const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-    const snapAngle=a=>Math.round(a/SNAP_STEP_RAD)*SNAP_STEP_RAD;
-    const signedArea=pts=>pts.reduce((s,p,i)=>{const q=pts[(i+1)%pts.length];return s+p.x*q.y-q.x*p.y;},0)/2;
-    const polyArea=pts=>Math.abs(signedArea(pts));
-    const pointSegDist=(p,a,b)=>{const l2=dist(a,b)**2;if(!l2)return dist(p,a);let t=((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/l2;t=Math.max(0,Math.min(1,t));return dist(p,{x:a.x+t*(b.x-a.x),y:a.y+t*(b.y-a.y)});};
+      const TERMS_ITEMS = [
+        {
+          title: 'Estimate Validity',
+          body:
+            'This estimate remains valid for 30 days from the proposal date. Pricing may be adjusted after that period to reflect material costs and scheduling availability.'
+        },
+        {
+          title: 'Payment Terms',
+          body:
+            'A 30% deposit secures the project schedule. The remaining 70% is due at completion. Online or card payments include a 3% processing fee; cash or check avoids this fee. Late balances may accrue a $50/day fee.'
+        },
+        {
+          title: 'Scope of Work',
+          body:
+            'Services will be completed as described in this estimate. Additional work or changes require written approval and may result in revised pricing.'
+        },
+        {
+          title: 'Surface Preparation',
+          body:
+            'Please remove furniture, décor, plants, and personal belongings from the work area prior to the start date unless other arrangements are made in advance.'
+        },
+        {
+          title: 'Access & Utilities',
+          body:
+            'Provide reasonable access to the property along with water and electricity, if needed, throughout the project duration.'
+        },
+        {
+          title: 'Weather Delays',
+          body:
+            'All services are weather-dependent. Scheduling may shift to maintain safe working conditions and optimal material curing.'
+        },
+        {
+          title: 'Material & Labor Warranty',
+          body:
+            'Materials are covered under manufacturer warranties. Alexandria Builders LLC includes a 6-month labor warranty for issues such as peeling or flaking under normal use.'
+        },
+        {
+          title: 'Color Selection',
+          body:
+            'Finalize your color or stain choice before work begins. Complimentary stain samples are available upon request.'
+        },
+        {
+          title: 'Property Condition',
+          body:
+            'We are not responsible for pre-existing conditions or natural movement of aged wood that could impact project outcomes, though we work carefully to protect your property.'
+        },
+        {
+          title: 'Clean-Up',
+          body:
+            'Our crew will tidy the jobsite and haul away project debris. Minor overspray or dust is possible and considered normal for exterior refinishing.'
+        },
+        {
+          title: 'Cancellation Policy',
+          body:
+            'Deposits are non-refundable if the project is cancelled within 48 hours of the scheduled start date.'
+        },
+        {
+          title: 'Legal & Insurance',
+          body:
+            'Alexandria Builders LLC is licensed, bonded, and insured in the State of Washington.'
+        }
+      ];
 
-    /* ===== state ===== */
-    const cvs=document.getElementById('deckCanvas');const ctx=cvs.getContext('2d');const dpi=window.devicePixelRatio||1;
-    let verts=[],railFlags=[],preview=null,closed=false,unit='in';
-    let hoverIdx=null,dragIdx=null,editIdx=null;
+      const LOGO_DATA_URI =
+        'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCAyMjAgNjAiPgogIDxyZWN0IHg9IjAiIHk9IjAiIHdpZHRoPSIyMjAiIGhlaWdodD0iNjAiIHJ4PSIxMCIgZmlsbD0iIzBkNmVmZCIvPgogIDxwYXRoIGQ9Ik0yMCA0MiBMMzAgMTggTDQwIDQyIFoiIGZpbGw9IiNmZmZmZmYiIG9wYWNpdHk9IjAuOSIvPgogIDxyZWN0IHg9IjQ4IiB5PSIxOCIgd2lkdGg9IjQiIGhlaWdodD0iMjQiIGZpbGw9IiNmZmZmZmYiIG9wYWNpdHk9IjAuNyIvPgogIDx0ZXh0IHg9IjU4IiB5PSIzNiIgZm9udC1mYW1pbHk9IidIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjZmZmZmZmIiBmb250LXdlaWdodD0iNjAwIj5BbGV4YW5kcmlhIEJ1aWxkZXJzPC90ZXh0PgogIDx0ZXh0IHg9IjU4IiB5PSI1MCIgZm9udC1mYW1pbHk9IidIZWx2ZXRpY2EgTmV1ZScsIEFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIiBmaWxsPSIjZDBlM2ZmIj5MTEM8L3RleHQ+Cjwvc3ZnPg==';
+      let cachedLogoPng = null;
 
-    /* ===== DOM refs ===== */
-    const areaOut=document.getElementById('areaOut');
-    const priceOut=document.getElementById('priceOut');
-    const railOut=document.getElementById('railOut');
-    const lenInput=document.getElementById('lenInput');
-    const railChk=document.getElementById('railChk');
-    const modal=new bootstrap.Modal(document.getElementById('lenModal'));
+      function buildTermsText(name, proposalDate) {
+        const displayName = name || 'Customer';
+        const displayDate = proposalDate || 'Proposal Date';
+        const paragraphs = [
+          `Customer: ${displayName} — Proposal Date: ${displayDate}.`,
+          'Estimate Validity: This estimate remains valid for 30 days from the proposal date. Pricing may be adjusted after that period to reflect material costs and scheduling availability.',
+          'Payment Terms: A 30% deposit secures the project schedule. The remaining 70% is due at completion. Online or card payments include a 3% processing fee; cash or check avoids this fee. Late balances may accrue a $50/day fee.',
+          'Scope of Work: Services will be completed as described in this estimate. Additional work or changes require written approval and may result in revised pricing.',
+          'Surface Preparation: Please remove furniture, décor, plants, and personal belongings from the work area prior to the start date unless other arrangements are made in advance.',
+          'Access & Utilities: Provide reasonable access to the property along with water and electricity, if needed, throughout the project duration.',
+          'Weather Delays: All services are weather-dependent. Scheduling may shift to maintain safe working conditions and optimal material curing.',
+          'Material & Labor Warranty: Materials are covered under manufacturer warranties. Alexandria Builders LLC includes a 6-month labor warranty for issues such as peeling or flaking under normal use.',
+          'Color Selection: Finalize your color or stain choice before work begins. Complimentary stain samples are available upon request.',
+          'Property Condition: We are not responsible for pre-existing conditions or natural movement of aged wood that could impact project outcomes, though we work carefully to protect your property.',
+          'Clean-Up: Our crew will tidy the jobsite and haul away project debris. Minor overspray or dust is possible and considered normal for exterior refinishing.',
+          'Cancellation Policy: Deposits are non-refundable if the project is cancelled within 48 hours of the scheduled start date.',
+          'Legal & Insurance: Alexandria Builders LLC is licensed, bonded, and insured in the State of Washington.'
+        ];
+        return paragraphs.join('\n\n');
+      }
 
-    /* ===== conversions ===== */
-    const ftToDisp=ft=>unit==='ft'?ft.toFixed(1):Math.round(ft*12);
-    const suff=()=>unit==='ft'?'′':'″';
-    const dispToFt=v=>unit==='ft'?v:v/12;
+      function rasterizeLogo(dataUri, width, height) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = width || img.width;
+            canvas.height = height || img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/png'));
+          };
+          img.onerror = () => reject(new Error('Unable to load logo'));
+          img.src = dataUri;
+        });
+      }
 
-    /* ===== resize ===== */
-    function fit(){const r=cvs.getBoundingClientRect();cvs.width=r.width*dpi;cvs.height=r.height*dpi;ctx.setTransform(dpi,0,0,dpi,0,0);draw();}
-    window.addEventListener('resize',fit);fit();
+      /* ===== helpers ===== */
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const snapAngle = (a) => Math.round(a / SNAP_STEP_RAD) * SNAP_STEP_RAD;
+      const signedArea = (pts) => pts.reduce((s, p, i) => {
+        const q = pts[(i + 1) % pts.length];
+        return s + p.x * q.y - q.x * p.y;
+      }, 0) / 2;
+      const polyArea = (pts) => Math.abs(signedArea(pts));
+      const pointSegDist = (p, a, b) => {
+        const l2 = dist(a, b) ** 2;
+        if (!l2) return dist(p, a);
+        let t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return dist(p, { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
+      };
 
-    document.getElementById('unitSel').addEventListener('change',e=>{unit=e.target.value;draw();});
+      /* ===== state ===== */
+      const cvs = document.getElementById('deckCanvas');
+      const ctx = cvs.getContext('2d');
+      const dpi = window.devicePixelRatio || 1;
+      let verts = [],
+        railFlags = [],
+        preview = null,
+        closed = false,
+        unit = 'in';
+      let hoverIdx = null,
+        dragIdx = null,
+        editIdx = null;
 
-    /* ===== drawing primitives ===== */
-    function drawSnap(p){ctx.fillStyle='limegreen';ctx.beginPath();ctx.arc(p.x,p.y,SNAP_MARK_R,0,Math.PI*2);ctx.fill();}
-            function drawLabel(a,b,i,isPrev=false){
-      const midX=(a.x+b.x)/2, midY=(a.y+b.y)/2;
-      // perpendicular unit normal
-      let nx=b.y-a.y, ny=-(b.x-a.x);
-      if(!isPrev && closed && signedArea(verts)>0){ nx=-nx; ny=-ny; }
-      const len=Math.hypot(nx,ny)||1; nx/=len; ny/=len;
-      const OFFSET=24; // px away from line
-      const x=midX + nx*OFFSET;
-      const y=midY + ny*OFFSET;
-      const lenFt=dist(a,b)/PX_PER_FT;
-      ctx.save();
-      ctx.textAlign='center';
-      ctx.textBaseline='middle';
-      ctx.fillStyle=isPrev?'#ff0000':(railFlags[i]?'#0d6efd':'#343a40');
-      ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i]?' R':''}`,x,y);
-      ctx.restore();
-    }
-    const hitV=p=>verts.findIndex(v=>dist(v,p)<HIT_R);
-    function railSum(){return railFlags.reduce((s,f,i)=>f?s+dist(verts[i],verts[(i+1)%verts.length])/PX_PER_FT:s,0);}
+      /* ===== DOM refs ===== */
+      const areaOut = document.getElementById('areaOut');
+      const priceOut = document.getElementById('priceOut');
+      const railOut = document.getElementById('railOut');
+      const lenInput = document.getElementById('lenInput');
+      const railChk = document.getElementById('railChk');
+      const modal = new bootstrap.Modal(document.getElementById('lenModal'));
+      const unitSel = document.getElementById('unitSel');
+      const nameInput = document.getElementById('custName');
+      const phoneInput = document.getElementById('custPhone');
+      const addressInput = document.getElementById('custAddress');
+      const dateInput = document.getElementById('proposalDate');
+      const headerProposalDate = document.getElementById('headerProposalDate');
+      const termsCustomer = document.getElementById('termsCustomer');
+      const termsDate = document.getElementById('termsDate');
+      const termsGrid = document.getElementById('termsGrid');
+      const downloadBtn = document.getElementById('downloadBtn');
 
-    /* ===== draw ===== */
-    function draw(){const r=cvs.getBoundingClientRect();ctx.clearRect(0,0,r.width,r.height);ctx.lineWidth=2;ctx.font='12px sans-serif';ctx.textBaseline='bottom'; ctx.textAlign='left';if(verts.length){ctx.strokeStyle='#0d6efd';ctx.fillStyle='rgba(13,110,253,.1)';ctx.beginPath();ctx.moveTo(verts[0].x,verts[0].y);verts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));if(closed)ctx.closePath();ctx.stroke();if(closed)ctx.fill();}if(hoverIdx!==null&&verts.length>1){const a=verts[hoverIdx],b=verts[(hoverIdx+1)%verts.length];ctx.lineWidth=8;ctx.strokeStyle='rgba(13,110,253,.3)';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();ctx.lineWidth=2;}if(preview&&verts.length&&!closed){ctx.setLineDash([5,5]);ctx.strokeStyle='red';ctx.beginPath();ctx.moveTo(verts.at(-1).x,verts.at(-1).y);ctx.lineTo(preview.x,preview.y);ctx.stroke();ctx.setLineDash([]);drawLabel(verts.at(-1),preview,verts.length-1,true);drawSnap(preview);}if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++)drawLabel(verts[i],verts[(i+1)%verts.length],i);}ctx.fillStyle='#212529';verts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();});const areaFt=polyArea(verts)/(PX_PER_FT**2);const railFt=railSum();const totalPrice=areaFt*5+railFt*8;areaOut.textContent=areaFt.toFixed(1);railOut.textContent=railFt.toFixed(1);priceOut.textContent=totalPrice.toFixed(2);}
+      /* ===== conversions ===== */
+      const ftToDisp = (ft) => (unit === 'ft' ? ft.toFixed(1) : Math.round(ft * 12));
+      const suff = () => (unit === 'ft' ? '′' : '″');
+      const dispToFt = (v) => (unit === 'ft' ? v : v / 12);
 
-    /* ===== hover ===== */
-    function updHover(pos){hoverIdx=null;if(verts.length>1){const n=closed?verts.length:verts.length-1;for(let i=0;i<n;i++){if(pointSegDist(pos,verts[i],verts[(i+1)%verts.length])<HOVER_HIT){hoverIdx=i;break;}}}}
+      /* ===== initialize defaults ===== */
+      const today = new Date();
+      const isoDate = today.toISOString().split('T')[0];
+      dateInput.value = isoDate;
 
-    /* ===== modal save ===== */
-    document.getElementById('lenSave').addEventListener('click',()=>{const v=parseFloat(lenInput.value);if(!(v>0))return;const ft=dispToFt(v);const a=verts[editIdx];const ang=Math.atan2(verts[(editIdx+1)%verts.length].y-a.y,verts[(editIdx+1)%verts.length].x-a.x);verts[(editIdx+1)%verts.length]={x:a.x+ft*PX_PER_FT*Math.cos(ang),y:a.y+ft*PX_PER_FT*Math.sin(ang)};railFlags[editIdx]=railChk.checked;modal.hide();draw();});
+      function formatDisplayDate(dateStr) {
+        if (!dateStr) return '—';
+        const date = new Date(dateStr);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+      }
 
-    /* ===== pointer events ===== */
-    cvs.addEventListener('pointerdown',e=>{const rect=cvs.getBoundingClientRect();const pt={x:e.clientX-rect.left,y:e.clientY-rect.top};const v=hitV(pt);if(v!==-1){dragIdx=v;cvs.setPointerCapture(e.pointerId);return;}if(hoverIdx!==null){editIdx=hoverIdx;const lenFt=dist(verts[editIdx],verts[(editIdx+1)%verts.length])/PX_PER_FT;lenInput.value=unit==='ft'?lenFt.toFixed(2):(lenFt*12).toFixed(1);railChk.checked=!!railFlags[editIdx];modal.show();return;}if(closed)return;if(preview){verts.push({...preview});railFlags.push(false);preview=null;}else{verts.push(pt);}draw();});
-    cvs.addEventListener('pointermove',e=>{const rect=cvs.getBoundingClientRect();const pos={x:e.clientX-rect.left,y:e.clientY-rect.top};if(dragIdx!==null){verts[dragIdx]=pos;draw();return;}if(!closed&&verts.length){const last=verts.at(-1);const ang=snapAngle(Math.atan2(pos.y-last.y,pos.x-last.x));const len=Math.hypot(pos.x-last.x,pos.y-last.y);preview={x:last.x+len*Math.cos(ang),y:last.y+len*Math.sin(ang)};}updHover(pos);draw();});
-    cvs.addEventListener('pointerup',e=>{if(dragIdx!==null){dragIdx=null;cvs.releasePointerCapture(e.pointerId);draw();}});
-    cvs.addEventListener('pointerleave',()=>{preview=null;hoverIdx=null;draw();});
+      function updateTermsMeta() {
+        const name = nameInput.value.trim();
+        const dateStr = dateInput.value;
+        const formatted = formatDisplayDate(dateStr);
+        headerProposalDate.textContent = formatted;
+        termsCustomer.textContent = name || '—';
+        termsDate.textContent = formatted;
+      }
 
-    /* ===== toolbar ===== */
-    document.getElementById('finishBtn').onclick=()=>{if(verts.length>=3){closed=true;preview=null;if(railFlags.length<verts.length)railFlags.length=verts.length;draw();}};
-    document.getElementById('undoBtn').onclick=()=>{if(closed)closed=false;else{verts.pop();railFlags.pop();}preview=null;draw();};
-    document.getElementById('clearBtn').onclick=()=>{verts=[];railFlags=[];preview=null;closed=false;hoverIdx=null;draw();};
-  })();
+      function renderTermsGrid() {
+        const frag = document.createDocumentFragment();
+        TERMS_ITEMS.forEach(({ title, body }) => {
+          const col = document.createElement('div');
+          const card = document.createElement('div');
+          card.className = 'h-100 border rounded-4 shadow-sm p-4 bg-white';
+          const heading = document.createElement('h3');
+          heading.className = 'h6 fw-semibold mb-2 text-primary';
+          heading.textContent = title;
+          const paragraph = document.createElement('p');
+          paragraph.className = 'mb-0 text-muted small';
+          paragraph.textContent = body;
+          card.appendChild(heading);
+          card.appendChild(paragraph);
+          col.appendChild(card);
+          frag.appendChild(col);
+        });
+        termsGrid.innerHTML = '';
+        termsGrid.appendChild(frag);
+      }
+
+      renderTermsGrid();
+      updateTermsMeta();
+
+      nameInput.addEventListener('input', updateTermsMeta);
+      dateInput.addEventListener('input', updateTermsMeta);
+
+      /* ===== resize ===== */
+      function fit() {
+        const r = cvs.getBoundingClientRect();
+        cvs.width = r.width * dpi;
+        cvs.height = r.height * dpi;
+        ctx.setTransform(dpi, 0, 0, dpi, 0, 0);
+        draw();
+      }
+      window.addEventListener('resize', fit);
+      fit();
+
+      unitSel.addEventListener('change', (e) => {
+        unit = e.target.value;
+        draw();
+      });
+
+      /* ===== drawing primitives ===== */
+      function drawSnap(p) {
+        ctx.fillStyle = 'limegreen';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, SNAP_MARK_R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawLabel(a, b, i, isPrev = false) {
+        const midX = (a.x + b.x) / 2,
+          midY = (a.y + b.y) / 2;
+        let nx = b.y - a.y,
+          ny = -(b.x - a.x);
+        if (!isPrev && closed && signedArea(verts) > 0) {
+          nx = -nx;
+          ny = -ny;
+        }
+        const len = Math.hypot(nx, ny) || 1;
+        nx /= len;
+        ny /= len;
+        const OFFSET = 24;
+        const x = midX + nx * OFFSET;
+        const y = midY + ny * OFFSET;
+        const lenFt = dist(a, b) / PX_PER_FT;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = isPrev ? '#ff0000' : railFlags[i] ? '#0d6efd' : '#343a40';
+        ctx.fillText(`${ftToDisp(lenFt)}${suff()}${railFlags[i] ? ' R' : ''}`, x, y);
+        ctx.restore();
+      }
+
+      const hitV = (p) => verts.findIndex((v) => dist(v, p) < HIT_R);
+      function railSum() {
+        return railFlags.reduce(
+          (s, f, i) => (f ? s + dist(verts[i], verts[(i + 1) % verts.length]) / PX_PER_FT : s),
+          0
+        );
+      }
+
+      /* ===== draw ===== */
+      function draw() {
+        const r = cvs.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+        ctx.lineWidth = 2;
+        ctx.font = '12px sans-serif';
+        ctx.textBaseline = 'bottom';
+        ctx.textAlign = 'left';
+        if (verts.length) {
+          ctx.strokeStyle = '#0d6efd';
+          ctx.fillStyle = 'rgba(13,110,253,.08)';
+          ctx.beginPath();
+          ctx.moveTo(verts[0].x, verts[0].y);
+          verts.slice(1).forEach((p) => ctx.lineTo(p.x, p.y));
+          if (closed) ctx.closePath();
+          ctx.stroke();
+          if (closed) ctx.fill();
+        }
+        if (hoverIdx !== null && verts.length > 1) {
+          const a = verts[hoverIdx],
+            b = verts[(hoverIdx + 1) % verts.length];
+          ctx.lineWidth = 8;
+          ctx.strokeStyle = 'rgba(13,110,253,.3)';
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+          ctx.lineWidth = 2;
+        }
+        if (preview && verts.length && !closed) {
+          ctx.setLineDash([5, 5]);
+          ctx.strokeStyle = '#dc3545';
+          ctx.beginPath();
+          ctx.moveTo(verts.at(-1).x, verts.at(-1).y);
+          ctx.lineTo(preview.x, preview.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          drawLabel(verts.at(-1), preview, verts.length - 1, true);
+          drawSnap(preview);
+        }
+        if (verts.length > 1) {
+          const n = closed ? verts.length : verts.length - 1;
+          for (let i = 0; i < n; i++) drawLabel(verts[i], verts[(i + 1) % verts.length], i);
+        }
+        ctx.fillStyle = '#212529';
+        verts.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        const areaFt = polyArea(verts) / PX_PER_FT ** 2;
+        const railFt = railSum();
+        const totalPrice = areaFt * 5 + railFt * 8;
+        areaOut.textContent = areaFt.toFixed(1);
+        railOut.textContent = railFt.toFixed(1);
+        priceOut.textContent = totalPrice.toFixed(2);
+      }
+
+      /* ===== hover ===== */
+      function updHover(pos) {
+        hoverIdx = null;
+        if (verts.length > 1) {
+          const n = closed ? verts.length : verts.length - 1;
+          for (let i = 0; i < n; i++) {
+            if (pointSegDist(pos, verts[i], verts[(i + 1) % verts.length]) < HOVER_HIT) {
+              hoverIdx = i;
+              break;
+            }
+          }
+        }
+      }
+
+      /* ===== modal save ===== */
+      document.getElementById('lenSave').addEventListener('click', () => {
+        const v = parseFloat(lenInput.value);
+        if (!(v > 0)) return;
+        const ft = dispToFt(v);
+        const a = verts[editIdx];
+        const ang = Math.atan2(verts[(editIdx + 1) % verts.length].y - a.y, verts[(editIdx + 1) % verts.length].x - a.x);
+        verts[(editIdx + 1) % verts.length] = {
+          x: a.x + ft * PX_PER_FT * Math.cos(ang),
+          y: a.y + ft * PX_PER_FT * Math.sin(ang)
+        };
+        railFlags[editIdx] = railChk.checked;
+        modal.hide();
+        draw();
+      });
+
+      /* ===== pointer events ===== */
+      cvs.addEventListener('pointerdown', (e) => {
+        const rect = cvs.getBoundingClientRect();
+        const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const v = hitV(pt);
+        if (v !== -1) {
+          dragIdx = v;
+          cvs.setPointerCapture(e.pointerId);
+          return;
+        }
+        if (hoverIdx !== null) {
+          editIdx = hoverIdx;
+          const lenFt = dist(verts[editIdx], verts[(editIdx + 1) % verts.length]) / PX_PER_FT;
+          lenInput.value = unit === 'ft' ? lenFt.toFixed(2) : (lenFt * 12).toFixed(1);
+          railChk.checked = !!railFlags[editIdx];
+          modal.show();
+          return;
+        }
+        if (closed) return;
+        if (preview) {
+          verts.push({ ...preview });
+          railFlags.push(false);
+          preview = null;
+        } else {
+          verts.push(pt);
+        }
+        draw();
+      });
+
+      cvs.addEventListener('pointermove', (e) => {
+        const rect = cvs.getBoundingClientRect();
+        const pos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        if (dragIdx !== null) {
+          verts[dragIdx] = pos;
+          draw();
+          return;
+        }
+        if (!closed && verts.length) {
+          const last = verts.at(-1);
+          const ang = snapAngle(Math.atan2(pos.y - last.y, pos.x - last.x));
+          const len = Math.hypot(pos.x - last.x, pos.y - last.y);
+          preview = {
+            x: last.x + len * Math.cos(ang),
+            y: last.y + len * Math.sin(ang)
+          };
+        }
+        updHover(pos);
+        draw();
+      });
+
+      cvs.addEventListener('pointerup', (e) => {
+        if (dragIdx !== null) {
+          dragIdx = null;
+          cvs.releasePointerCapture(e.pointerId);
+          draw();
+        }
+      });
+      cvs.addEventListener('pointerleave', () => {
+        preview = null;
+        hoverIdx = null;
+        draw();
+      });
+
+      /* ===== toolbar ===== */
+      document.getElementById('finishBtn').onclick = () => {
+        if (verts.length >= 3) {
+          closed = true;
+          preview = null;
+          if (railFlags.length < verts.length) railFlags.length = verts.length;
+          draw();
+        }
+      };
+      document.getElementById('undoBtn').onclick = () => {
+        if (closed) closed = false;
+        else {
+          verts.pop();
+          railFlags.pop();
+        }
+        preview = null;
+        draw();
+      };
+      document.getElementById('clearBtn').onclick = () => {
+        verts = [];
+        railFlags = [];
+        preview = null;
+        closed = false;
+        hoverIdx = null;
+        draw();
+      };
+
+      /* ===== PDF export ===== */
+      downloadBtn.addEventListener('click', async () => {
+        const name = nameInput.value.trim();
+        if (!name) {
+          nameInput.focus();
+          nameInput.classList.add('is-invalid');
+          setTimeout(() => nameInput.classList.remove('is-invalid'), 2000);
+          return;
+        }
+        const phone = phoneInput.value.trim();
+        const address = addressInput.value.trim();
+        const proposalDate = dateInput.value ? new Date(dateInput.value) : new Date();
+        const dateStr = proposalDate.toLocaleDateString(undefined, {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        });
+
+        const areaVal = areaOut.textContent;
+        const railVal = railOut.textContent;
+        const priceVal = priceOut.textContent;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+        const margin = 48;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const usableWidth = pageWidth - margin * 2;
+
+        const logoWidth = 150;
+        const logoHeight = (logoWidth * 60) / 220;
+        if (!cachedLogoPng) {
+          try {
+            cachedLogoPng = await rasterizeLogo(LOGO_DATA_URI, 440, 160);
+          } catch (err) {
+            console.warn(err);
+          }
+        }
+        if (cachedLogoPng) {
+          doc.addImage(cachedLogoPng, 'PNG', margin, margin, logoWidth, logoHeight);
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Alexandria Builders LLC', pageWidth - margin, margin + 16, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        doc.text(`Proposal Date: ${dateStr}`, pageWidth - margin, margin + 34, { align: 'right' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(22);
+        doc.text('Estimate', margin, margin + logoHeight + 32);
+
+        let y = margin + logoHeight + 60;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Customer', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        y += 18;
+        const customerLines = [
+          `Name: ${name}`,
+          phone ? `Phone: ${phone}` : null,
+          address ? `Address: ${address}` : null
+        ].filter(Boolean);
+        customerLines.forEach((line) => {
+          doc.text(line, margin, y);
+          y += 16;
+        });
+
+        if (y < margin + 120) y = margin + 120;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Project Summary', margin, y);
+        y += 18;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const summaryLines = [
+          `Deck Area: ${areaVal} square feet`,
+          `Railing Linear Feet: ${railVal} feet`,
+          `Estimated Investment: $${priceVal}`
+        ];
+        summaryLines.forEach((line) => {
+          doc.text(line, margin, y);
+          y += 16;
+        });
+
+        const canvas = document.getElementById('deckCanvas');
+        if (canvas && canvas.width && canvas.height) {
+          const imgData = canvas.toDataURL('image/png');
+          const targetWidth = Math.min(usableWidth, 340);
+          const aspect = canvas.height / canvas.width;
+          const targetHeight = targetWidth * aspect;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.text('Deck Sketch', margin, y + 12);
+          y += 28;
+          doc.addImage(imgData, 'PNG', margin, y, targetWidth, targetHeight);
+          y += targetHeight + 24;
+        }
+
+        if (y > doc.internal.pageSize.getHeight() - margin - 120) {
+          doc.addPage();
+          y = margin;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Terms & Conditions', margin, y);
+        y += 18;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const termLines = doc.splitTextToSize(
+          buildTermsText(name, dateStr),
+          usableWidth
+        );
+        doc.text(termLines, margin, y);
+
+        const fileName = `Estimate-${name.replace(/[^a-z0-9]+/gi, '-') || 'customer'}.pdf`;
+        doc.save(fileName);
+      });
+    })();
   </script>
 </body>
 </html>
-
