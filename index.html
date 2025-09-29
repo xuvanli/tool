@@ -187,7 +187,6 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script>
     (function () {
-      /* ===== constants ===== */
       const PX_PER_FT = 10,
         SNAP_STEP_RAD = Math.PI / 12,
         SNAP_MARK_R = 6,
@@ -299,7 +298,6 @@
         });
       }
 
-      /* ===== helpers ===== */
       const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
       const snapAngle = (a) => Math.round(a / SNAP_STEP_RAD) * SNAP_STEP_RAD;
       const signedArea = (pts) => pts.reduce((s, p, i) => {
@@ -315,7 +313,6 @@
         return dist(p, { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) });
       };
 
-      /* ===== state ===== */
       const cvs = document.getElementById('deckCanvas');
       const ctx = cvs.getContext('2d');
       const dpi = window.devicePixelRatio || 1;
@@ -328,7 +325,6 @@
         dragIdx = null,
         editIdx = null;
 
-      /* ===== DOM refs ===== */
       const areaOut = document.getElementById('areaOut');
       const priceOut = document.getElementById('priceOut');
       const railOut = document.getElementById('railOut');
@@ -346,12 +342,10 @@
       const termsGrid = document.getElementById('termsGrid');
       const downloadBtn = document.getElementById('downloadBtn');
 
-      /* ===== conversions ===== */
       const ftToDisp = (ft) => (unit === 'ft' ? ft.toFixed(1) : Math.round(ft * 12));
       const suff = () => (unit === 'ft' ? '′' : '″');
       const dispToFt = (v) => (unit === 'ft' ? v : v / 12);
 
-      /* ===== initialize defaults ===== */
       const today = new Date();
       const isoDate = today.toISOString().split('T')[0];
       dateInput.value = isoDate;
@@ -403,7 +397,6 @@
       nameInput.addEventListener('input', updateTermsMeta);
       dateInput.addEventListener('input', updateTermsMeta);
 
-      /* ===== resize ===== */
       function fit() {
         const r = cvs.getBoundingClientRect();
         cvs.width = r.width * dpi;
@@ -419,7 +412,6 @@
         draw();
       });
 
-      /* ===== drawing primitives ===== */
       function drawSnap(p) {
         ctx.fillStyle = 'limegreen';
         ctx.beginPath();
@@ -459,8 +451,7 @@
         );
       }
 
-      /* ===== draw ===== */
-      function draw() {
+        function draw() {
         const r = cvs.getBoundingClientRect();
         ctx.clearRect(0, 0, r.width, r.height);
         ctx.lineWidth = 2;
@@ -517,7 +508,6 @@
         priceOut.textContent = totalPrice.toFixed(2);
       }
 
-      /* ===== hover ===== */
       function updHover(pos) {
         hoverIdx = null;
         if (verts.length > 1) {
@@ -531,7 +521,6 @@
         }
       }
 
-      /* ===== modal save ===== */
       document.getElementById('lenSave').addEventListener('click', () => {
         const v = parseFloat(lenInput.value);
         if (!(v > 0)) return;
@@ -547,7 +536,6 @@
         draw();
       });
 
-      /* ===== pointer events ===== */
       cvs.addEventListener('pointerdown', (e) => {
         const rect = cvs.getBoundingClientRect();
         const pt = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -610,7 +598,6 @@
         draw();
       });
 
-      /* ===== toolbar ===== */
       document.getElementById('finishBtn').onclick = () => {
         if (verts.length >= 3) {
           closed = true;
@@ -637,7 +624,6 @@
         draw();
       };
 
-      /* ===== PDF export ===== */
       downloadBtn.addEventListener('click', async () => {
         const name = nameInput.value.trim();
         if (!name) {
